@@ -151,8 +151,9 @@ function Kubeconfig() {
   return (
     <>
       <p className="set-intro">
-        Steerglass reads <span className="mono">$KUBECONFIG</span>, <span className="mono">~/.kube/config</span> and the files below, like kubectl. Contexts with
-        the same name are taken from the first file.
+        Steerglass reads <span className="mono">$KUBECONFIG</span>, <span className="mono">~/.kube/config</span> and the files below, like kubectl. When two files use
+        the same name for different clusters (k3s calls them all <span className="mono">default</span>), the later one gets its file name added, like{" "}
+        <span className="mono">default (k3s-lab)</span>.
       </p>
       <SettingGroup title="Sources">
         <SettingRow title="Scan ~/.kube" desc="Also load every kubeconfig file found in the ~/.kube folder.">
@@ -164,16 +165,57 @@ function Kubeconfig() {
             aria-label="Scan ~/.kube"
           />
         </SettingRow>
-        {report?.files.map((f) => (
-          <SettingRow key={f} title={<span className="mono set-sub">{f}</span>} desc={settings.extraKubeconfigs.includes(f) ? "Added by you" : "Found automatically"}>
-            {settings.extraKubeconfigs.includes(f) && (
-              <button className="icon-btn" onClick={() => save({ ...settings, extraKubeconfigs: settings.extraKubeconfigs.filter((x) => x !== f) })} aria-label={`Remove ${f}`}>
-                <Trash2 size={13} />
-              </button>
-            )}
-          </SettingRow>
-        ))}
+        {[...(report?.files ?? []), ...(report?.excluded ?? [])].map((f) => {
+          const added = settings.extraKubeconfigs.includes(f);
+          const off = settings.excludedKubeconfigs.includes(f);
+          const count = report?.contexts.filter((c) => c.source === f).length ?? 0;
+          const desc = `${added ? "Added by you" : "Found automatically"} · ${off ? "switched off" : `${count} cluster${count === 1 ? "" : "s"}`}`;
+          return (
+            <SettingRow key={f} title={<span className={`mono set-sub${off ? " muted" : ""}`}>{f}</span>} desc={desc}>
+              <div className="row-gap">
+                <input
+                  type="checkbox"
+                  className="switch"
+                  checked={!off}
+                  onChange={(e) =>
+                    save({ ...settings, excludedKubeconfigs: e.target.checked ? settings.excludedKubeconfigs.filter((x) => x !== f) : [...settings.excludedKubeconfigs, f] })
+                  }
+                  aria-label={`Load ${f}`}
+                  title={off ? "Load the clusters of this file" : "Switch off this file, e.g. one for clusters that no longer exist"}
+                />
+                {added && (
+                  <button
+                    className="icon-btn"
+                    onClick={() =>
+                      save({ ...settings, extraKubeconfigs: settings.extraKubeconfigs.filter((x) => x !== f), excludedKubeconfigs: settings.excludedKubeconfigs.filter((x) => x !== f) })
+                    }
+                    aria-label={`Remove ${f}`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </SettingRow>
+          );
+        })}
       </SettingGroup>
+      {settings.hiddenContexts.length > 0 && (
+        <SettingGroup title="Hidden clusters">
+          {settings.hiddenContexts.map((c) => (
+            <SettingRow key={c} title={<span className="mono set-sub">{shortContext(c)}</span>} desc={report?.hidden.includes(c) ? "Hidden from the sidebar and the overview" : "Not in your kubeconfig files any more"}>
+              <button
+                className="btn small"
+                onClick={async () => {
+                  await useStore.getState().setHidden(c, false);
+                  setSettings(await api.getSettings());
+                }}
+              >
+                Show
+              </button>
+            </SettingRow>
+          ))}
+        </SettingGroup>
+      )}
       {report?.errors.map((e) => (
         <div key={e} className="error small">
           {e}

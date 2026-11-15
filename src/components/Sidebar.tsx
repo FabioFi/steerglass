@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CircleHelp, LayoutGrid, Search, Settings, Star, Upload } from "lucide-react";
+import { CircleHelp, EyeOff, LayoutGrid, Search, Settings, Star, Upload } from "lucide-react";
 import { orderedContexts, shortcutContexts, useStore } from "../store";
 import { CATEGORIES, customGroups, kindKey } from "../kinds";
 import { fuzzy, isMac, modKey, shortContext } from "../util";
@@ -74,7 +74,7 @@ export function Sidebar() {
                 e.preventDefault();
                 setEnvMenu({ ctx: c.name, x: e.clientX, y: e.clientY });
               }}
-              title={`${c.name}\n${c.server ?? ""}\n${c.source}\nRight-click to set its environment`}
+              title={`${c.name}\n${c.server ?? ""}\n${c.source}\nRight-click to set its environment or hide it`}
             >
               <span className={`dot ${dot}`} />
               <span className="ctx-name">{shortContext(c.name)}</span>
@@ -149,6 +149,10 @@ export function Sidebar() {
               </button>
             );
           })}
+          <div className="menu-sep" />
+          <button onClick={() => useStore.getState().setHidden(envMenu.ctx, true)}>
+            Hide cluster <EyeOff size={12} className="muted" />
+          </button>
         </div>
       )}
 

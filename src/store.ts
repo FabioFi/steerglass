@@ -99,6 +99,8 @@ interface State extends Persisted {
   confirm: Confirm | null;
 
   loadContexts: (reload?: boolean) => Promise<void>;
+  /** Hides a cluster from the sidebar and the overview, or shows it again. */
+  setHidden: (ctx: string, hidden: boolean) => Promise<void>;
   probe: (ctx: string) => Promise<void>;
   /** Probes every context; with `onlyMissing`, skips those already probed or in flight. */
   probeAll: (onlyMissing?: boolean) => Promise<void>;
@@ -170,6 +172,22 @@ export const useStore = create<State>((set, get) => ({
       const contexts = get().contexts.filter((c) => names.has(c));
       set({ report, contexts, view: contexts.length ? get().view : "overview" });
       if (reload) set({ probes: {}, discovered: {}, namespaces: {} });
+    } catch (e) {
+      get().toast(errText(e), "error");
+    }
+  },
+
+  async setHidden(ctx, hidden) {
+    try {
+      const settings = await api.getSettings();
+      const hiddenContexts = hidden ? [...settings.hiddenContexts.filter((c) => c !== ctx), ctx] : settings.hiddenContexts.filter((c) => c !== ctx);
+      const report = await api.updateSettings({ ...settings, hiddenContexts });
+      set((s) => {
+        // A hidden cluster no longer counts in the overview (connected, unreachable).
+        const { [ctx]: _, ...probes } = s.probes;
+        return { report, contexts: s.contexts.filter((c) => c !== ctx || !hidden), probes: hidden ? probes : s.probes };
+      });
+      if (!hidden) get().probe(ctx);
     } catch (e) {
       get().toast(errText(e), "error");
     }

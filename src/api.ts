@@ -15,12 +15,18 @@ export interface ContextInfo {
 export interface LoadReport {
   contexts: ContextInfo[];
   files: string[];
+  /** Files found but switched off in Settings. */
+  excluded: string[];
+  /** Contexts hidden from the sidebar and the overview. */
+  hidden: string[];
   errors: string[];
 }
 
 export interface Settings {
   extraKubeconfigs: string[];
   scanKubeDir: boolean;
+  excludedKubeconfigs: string[];
+  hiddenContexts: string[];
 }
 
 export interface KindRef {

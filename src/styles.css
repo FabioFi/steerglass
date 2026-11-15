@@ -689,6 +689,11 @@ select {
   background: var(--accent);
   color: var(--on-accent);
 }
+.menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
 .menu button.danger {
   color: var(--error);
 }
