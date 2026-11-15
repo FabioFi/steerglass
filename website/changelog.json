@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.3.1",
+    "date": "2026-11-15",
+    "title": "Clusters with the same name, and less clutter",
+    "items": [
+      "Kubeconfig files that use the same names, like the default ones written by k3s, no longer hide each other's clusters: the later one shows up with its file name added, e.g. default (k3s-lab).",
+      "Settings → Kubeconfig: switch off any file found in ~/.kube, for example one for clusters that no longer exist, without turning off the scan.",
+      "Right-click a cluster → Hide cluster to remove it from the sidebar and the overview; Settings → Kubeconfig lists hidden clusters to show them again."
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-11-13",
     "title": "Steerglass is now open source",
