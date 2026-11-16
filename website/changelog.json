@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-11-16",
+    "title": "AI help, with your own model",
+    "items": [
+      "Optional AI help, off by default: turn it on in Settings → AI, pick a provider (OpenAI, Anthropic, Mistral, DeepSeek, OpenRouter, any OpenAI-compatible server, or a local model with Ollama or LM Studio), add your key and choose a model. Requests go straight from your computer to that provider, never through steerglass.com, and the key is kept in your system's keychain.",
+      "Explain: the new tab in an object's details (or A, or ✨ next to an issue in Needs attention) tells you what is wrong and what to do, from its YAML, events, pods and logs. Summarize in the log viewer explains a long log in a few lines.",
+      "Ask AI (⌘J): ask questions about your clusters in plain words. The AI reads resources, YAML, events and logs with read-only tools and can compare clusters.",
+      "When a change would help — scale, restart, cordon, suspend a CronJob or apply a manifest — Ask AI shows it as a card with an Apply button. Nothing changes until you confirm, and manifests open in Apply YAML for review first.",
+      "Type plain words in ⌘K, like \"failing pods in staging\", and press ⇧↵ to jump there. In a pod or node shell, Ask for a command writes the command at the prompt for you to check and run.",
+      "Secrets are never read, values that look like passwords or tokens are hidden, production clusters are left out unless you allow them, and you can see exactly what was sent. Answers can be in your language (Settings → AI)."
+    ]
+  },
+  {
     "version": "0.3.1",
     "date": "2026-11-15",
     "title": "Clusters with the same name, and less clutter",

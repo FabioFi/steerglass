@@ -55,7 +55,7 @@
     <header class="page-head">
       <div class="eyebrow">Legal</div>
       <h1>Privacy policy</h1>
-      <p class="lead">Last updated November 13, 2026.</p>
+      <p class="lead">Last updated November 16, 2026.</p>
     </header>
 
     <article class="legal">
@@ -64,6 +64,7 @@
         <ul>
           <li>Your kubeconfig, credentials and everything in your clusters <b>stay on your computer</b>. Steerglass talks to your clusters directly, never through us.</li>
           <li>Steerglass has <b>no accounts</b>, no telemetry and no crash reporting. The app only contacts steerglass.com to check for and download updates.</li>
+          <li><b>AI help is off by default.</b> If you turn it on, the app sends what you ask about straight to the AI provider you choose, with your own key — never through us.</li>
           <li>The website uses <b>cookieless, anonymous analytics</b> (Umami, on our own server). No ads, no trackers, nothing sold or shared for marketing.</li>
           <li>Steerglass is open source: you can check all of this in <a href="https://github.com/steerglass/steerglass">the code</a>.</li>
         </ul>
@@ -77,6 +78,10 @@
       <h3>What the app sends</h3>
       <p>Steerglass reads your kubeconfig and connects <b>directly</b> from your computer to your Kubernetes clusters. Your kubeconfig, tokens and certificates, cluster names and addresses, resources, logs, secrets and terminal sessions <b>are never sent to us</b>. The app has no accounts, no telemetry and no crash reporting.</p>
       <p>The app only contacts steerglass.com to <b>check for updates</b> (it downloads a small file with the latest version number) and to download them. Like any web request, this reaches our server logs (see below).</p>
+
+      <h3>AI help (optional)</h3>
+      <p>AI help is <b>off by default</b>. If you turn it on in Settings → AI, you choose the provider (for example OpenAI, Anthropic, Mistral, DeepSeek, OpenRouter, or a model running on your own computer with Ollama or LM Studio) and use your own API key. The app then sends requests <b>directly from your computer to that provider</b>; nothing goes through steerglass.com and we never see your questions, the answers or your key. The provider handles that data under its own terms and privacy policy.</p>
+      <p>Only what a feature needs is sent, when you use it: for example the YAML, events and recent log lines of the object you ask to explain, the logs you ask to summarize, or the resources the AI reads to answer a question in Ask AI. Secrets are never read or sent, values that look like passwords, tokens or keys are hidden before sending, and production clusters are left out unless you allow them. The app shows you what was sent. Your API key is kept in your system's keychain.</p>
 
       <h3>Website analytics</h3>
       <p>We use <b>Umami</b>, self-hosted on our server, to count visits and see what works on the website: pages viewed (without query strings, except campaign tags such as <code>utm_source</code> that tell us which link brought you), referring site, browser, operating system, device type, screen size, language and approximate location (country, region, city) derived from your IP address. We also count a few actions, such as which installer is downloaded.</p>

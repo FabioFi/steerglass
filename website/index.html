@@ -462,8 +462,8 @@
           <h3>Logs, shell, port-forward</h3><p>Follow colored logs with search, open a shell in any container, forward ports from pods and services — all built in.</p></div>
         <div class="card"><div class="ico"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="m9 14 2 2 4-4"/></svg></div>
           <h3>Edit &amp; apply YAML</h3><p>Edit any object in a real code editor, or apply manifests with server-side apply. Every CRD in your cluster just works.</p></div>
-        <div class="card"><div class="ico"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
-          <h3>Live, always</h3><p>Everything streams through Kubernetes watches, and only what changed on screen is redrawn. Thousands of rows stay smooth.</p></div>
+        <div class="card"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></div>
+          <h3>AI help, if you want it</h3><p>Explain a failing pod, summarize logs, or ask questions across clusters. Bring your own model, even a local one. Changes always wait for your OK.</p></div>
         <div class="card"><div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
           <h3>Private by design</h3><p>Talks straight to your API servers with your kubeconfig. Your cluster data never touches our servers, and there's no telemetry. Updates arrive signed.</p></div>
       </div>
@@ -549,7 +549,7 @@
       <div class="eyebrow" style="text-align:center">FAQ</div>
       <h2 style="text-align:center; margin-bottom: 30px">Questions</h2>
       <details><summary>Does Steerglass send my cluster data anywhere?</summary>
-        <p>No. Steerglass talks directly from your computer to your Kubernetes API servers using your existing kubeconfig. Your cluster data never leaves your machine and there's no telemetry.</p></details>
+        <p>No. Steerglass talks directly from your computer to your Kubernetes API servers using your existing kubeconfig. Your cluster data never leaves your machine and there's no telemetry. The optional AI help is off by default: if you turn it on, what you ask about goes straight to the AI provider you choose (or a model on your own computer), never through us.</p></details>
       <details><summary>Which clusters and auth methods are supported?</summary>
         <p>Anything kubectl can reach: EKS, GKE, AKS, OpenShift, k3s, kind, minikube, Rancher and bare metal. Token, client-certificate, OIDC and exec credential plugins (gke-gcloud-auth-plugin, aws, kubelogin…) all work as they do in your terminal.</p></details>
       <details><summary>How is it different from Lens, k9s or Headlamp?</summary>
