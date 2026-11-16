@@ -104,12 +104,13 @@ How it compares with Lens, k9s and Headlamp: [steerglass.com/compare](https://st
 
 | Key | Action |
 | --- | --- |
-| ⌘K / : | Command palette (resources, clusters, namespaces, actions) |
+| ⌘K / : | Command palette (resources, clusters, namespaces, actions); ⇧↵ asks the AI in plain words |
 | / or ⌘F | Filter the table (`status:bad` shows only unhealthy rows) |
 | ↑↓ / j k | Move selection, ↵ open details, Esc close |
 | L / S / E | Logs / Shell / Edit YAML of the selected object |
 | R / ⌫ / C | Rollout restart / Delete / Copy name |
-| A | Explain with AI (optional, see below) |
+| A | Explain with AI (optional, see above) |
+| ⌘J | Ask AI: questions about your clusters |
 | N | Pick a namespace (type to search) |
 | ⌘1…9, ⌘0 | Jump to favorite cluster N, back to overview |
 | ? | Help: every shortcut and tip |
