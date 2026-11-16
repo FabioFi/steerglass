@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { shortcutContexts, useStore } from "./store";
+import { loadAiSettings, useAi } from "./ai";
 import { api } from "./api";
 import { Sidebar } from "./components/Sidebar";
 import { Overview } from "./components/Overview";
+import { AiChat } from "./components/AiChat";
 import { ResourceTable } from "./components/ResourceTable";
 import { DetailPanel } from "./components/DetailPanel";
 import { CommandPalette } from "./components/CommandPalette";
@@ -66,6 +68,7 @@ export default function App() {
   useEffect(() => {
     const s = useStore.getState();
     api.appStoreBuild().then((appStore) => s.set({ appStore }));
+    loadAiSettings();
     s.loadContexts().then(() => {
       const st = useStore.getState();
       if (st.contexts.length) st.openResources(st.contexts);
@@ -84,6 +87,11 @@ export default function App() {
       if (mod && e.key === ",") {
         e.preventDefault();
         s.set({ settingsOpen: true });
+        return;
+      }
+      if (mod && e.key === "j" && useAi.getState().settings?.enabled) {
+        e.preventDefault();
+        s.set({ view: s.view === "ai" ? (s.contexts.length ? "resources" : "overview") : "ai" });
         return;
       }
       if (mod && e.key === "0") {
@@ -124,7 +132,7 @@ export default function App() {
   return (
     <div className={`app ${isMac ? "mac" : ""}`}>
       <Sidebar />
-      <main className="main">{!ready ? null : view === "overview" || contexts.length === 0 ? <Overview /> : <ResourceTable />}</main>
+      <main className="main">{!ready ? null : view === "ai" ? <AiChat /> : view === "overview" || contexts.length === 0 ? <Overview /> : <ResourceTable />}</main>
       {detail && view === "resources" && <DetailPanel />}
       <CommandPalette />
       <SettingsDialog />

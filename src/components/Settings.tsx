@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
-import { Cable, FilePlus, FileStack, Info, Layers, Monitor, Moon, Palette, Sun, Trash2, X } from "lucide-react";
+import { Cable, FilePlus, FileStack, Info, Layers, Monitor, Moon, Palette, Sparkles, Sun, Trash2, X } from "lucide-react";
 import type { Theme } from "../theme";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { api, errText, type Settings } from "../api";
@@ -13,8 +13,9 @@ import { UpdateSettings } from "./Updates";
 import { SettingGroup, SettingRow } from "./SettingRow";
 import { EnvTag } from "./EnvTag";
 import { Logo } from "./Logo";
+import { AiSection } from "./AiSettings";
 
-type Section = "general" | "appearance" | "kubeconfig" | "environments" | "forwards";
+type Section = "general" | "appearance" | "kubeconfig" | "environments" | "forwards" | "ai";
 
 const SECTIONS: [Section, string, React.ReactNode][] = [
   ["general", "General", <Info size={14} />],
@@ -22,11 +23,18 @@ const SECTIONS: [Section, string, React.ReactNode][] = [
   ["kubeconfig", "Kubeconfig", <FileStack size={14} />],
   ["environments", "Environments", <Layers size={14} />],
   ["forwards", "Port forwards", <Cable size={14} />],
+  ["ai", "AI", <Sparkles size={14} />],
 ];
 
 export function SettingsDialog() {
   const open = useStore((s) => s.settingsOpen);
   const [section, setSection] = useState<Section>("general");
+  const wanted = useStore((s) => s.settingsSection);
+  useEffect(() => {
+    if (!open || !wanted) return;
+    if (SECTIONS.some(([s]) => s === wanted)) setSection(wanted as Section);
+    useStore.getState().set({ settingsSection: null });
+  }, [open, wanted]);
   if (!open) return null;
   const close = () => useStore.getState().set({ settingsOpen: false });
   const title = SECTIONS.find(([s]) => s === section)?.[1];
@@ -55,6 +63,7 @@ export function SettingsDialog() {
             {section === "kubeconfig" && <Kubeconfig />}
             {section === "environments" && <Environments />}
             {section === "forwards" && <Forwards />}
+            {section === "ai" && <AiSection />}
           </div>
         </div>
       </div>

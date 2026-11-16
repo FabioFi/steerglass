@@ -17,6 +17,8 @@ pub struct Settings {
     pub hidden_contexts: Vec<String>,
     /// macOS security-scoped bookmarks (path -> base64 data) for files and folders the user granted.
     pub bookmarks: std::collections::BTreeMap<String, String>,
+    /// Optional AI help (off by default); the API key is kept in the system keychain.
+    pub ai: crate::ai::AiSettings,
 }
 
 impl Default for Settings {
@@ -27,6 +29,7 @@ impl Default for Settings {
             excluded_kubeconfigs: vec![],
             hidden_contexts: vec![],
             bookmarks: Default::default(),
+            ai: Default::default(),
         }
     }
 }

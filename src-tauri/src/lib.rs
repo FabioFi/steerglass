@@ -1,3 +1,6 @@
+mod ai;
+mod ai_assist;
+mod ai_chat;
 mod commands;
 mod console;
 mod debug;
@@ -146,6 +149,16 @@ pub fn run() {
             streams::exec_resize,
             streams::portforward_start,
             streams::portforward_list,
+            ai::ai_key_status,
+            ai::ai_set_key,
+            ai::ai_update_settings,
+            ai::ai_models,
+            ai::ai_prepare,
+            ai::ai_run,
+            ai_chat::ai_chat_send,
+            ai_chat::ai_chat_reset,
+            ai_assist::ai_palette,
+            ai_assist::ai_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

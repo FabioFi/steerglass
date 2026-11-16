@@ -7,6 +7,8 @@ import { ObjectOverview } from "./ObjectOverview";
 import { LogsView } from "./LogsView";
 import { EventsView } from "./EventsView";
 import { PodResources } from "./Usage";
+import { AiPanel } from "./AiPanel";
+import { canExplain, useAi } from "../ai";
 
 const YamlEditor = lazy(() => import("./YamlEditor").then((m) => ({ default: m.YamlEditor })));
 const Terminal = lazy(() => import("./Terminal").then((m) => ({ default: m.Terminal })));
@@ -20,6 +22,7 @@ export function DetailPanel() {
   const isNode = ref.kind.group === "" && ref.kind.kind === "Node";
   const dragging = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const aiOn = useAi((s) => !!s.settings?.enabled);
 
   const tabs: [DetailTab, string][] = [
     ["overview", "Overview"],
@@ -28,6 +31,7 @@ export function DetailPanel() {
     ...(isPod ? ([["logs", "Logs"], ["shell", "Shell"]] as [DetailTab, string][]) : []),
     ...(isNode ? ([["shell", "Shell"]] as [DetailTab, string][]) : []),
     ["events", "Events"],
+    ...(aiOn && canExplain(ref) ? ([["ai", "Explain"]] as [DetailTab, string][]) : []),
   ];
 
   useEffect(() => {
@@ -48,7 +52,7 @@ export function DetailPanel() {
     };
   }, [set]);
 
-  const actions = actionsFor(ref).filter((a) => !["details", "logs", "shell", "yaml", "events"].includes(a.id));
+  const actions = actionsFor(ref).filter((a) => !["details", "logs", "shell", "yaml", "events", "explain"].includes(a.id));
   const key = `${ref.context}|${ref.kind.kind}|${ref.namespace}|${ref.name}`;
 
   return (
@@ -106,6 +110,7 @@ export function DetailPanel() {
         {tab === "logs" && <LogsView key={key} objRef={ref} initialContainer={detail.container} />}
         {tab === "shell" && <Terminal key={key + (detail.container ?? "")} objRef={ref} initialContainer={detail.container} />}
         {tab === "events" && <EventsView key={key} objRef={ref} />}
+        {tab === "ai" && <AiPanel key={key} objRef={ref} />}
         </Suspense>
       </div>
     </section>

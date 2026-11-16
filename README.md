@@ -83,6 +83,21 @@ in your terminal, even when the app is started from the Finder or the Start menu
 - ⌘K command palette for resources, clusters, namespaces and actions; single-key shortcuts for the
   rest (see below). Light and dark themes.
 
+**AI help (optional, off by default)**
+- **Explain** a failing pod, deployment, job or node (key `A`, or ✨ next to a problem in the overview):
+  Steerglass collects its status, events and recent logs and the model tells you what is wrong and
+  what to do. **Summarize** does the same for the logs you are looking at.
+- **Ask AI** (⌘J): a conversation in which the AI reads what it needs (resources, YAML, events, logs,
+  in several clusters) with read-only tools. When it suggests a change it can make (scale, restart,
+  cordon, suspend, apply YAML), you get an Apply button that goes through the usual confirmations.
+- **Plain words** in ⌘K ("failing pods in staging", ⇧↵) and **Ask for a command** in shells: the AI
+  writes the command at the prompt, you read it and press Enter.
+- Bring your own model: OpenAI, Anthropic, DeepSeek, Mistral, OpenRouter, any OpenAI-compatible
+  server, or a model on your computer with Ollama or LM Studio (nothing leaves your machine).
+- The app talks directly to the provider you choose; the key is kept in the system keychain. Secrets
+  are never sent, values that look like passwords or tokens are redacted, production clusters are
+  excluded unless you allow them, and you can see exactly what is sent.
+
 How it compares with Lens, k9s and Headlamp: [steerglass.com/compare](https://steerglass.com/compare/).
 
 ## Keyboard shortcuts
@@ -94,6 +109,7 @@ How it compares with Lens, k9s and Headlamp: [steerglass.com/compare](https://st
 | ↑↓ / j k | Move selection, ↵ open details, Esc close |
 | L / S / E | Logs / Shell / Edit YAML of the selected object |
 | R / ⌫ / C | Rollout restart / Delete / Copy name |
+| A | Explain with AI (optional, see below) |
 | N | Pick a namespace (type to search) |
 | ⌘1…9, ⌘0 | Jump to favorite cluster N, back to overview |
 | ? | Help: every shortcut and tip |

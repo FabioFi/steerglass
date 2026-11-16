@@ -21,11 +21,11 @@ use crate::table::{self, Ev};
 
 const FLUSH_EVERY: Duration = Duration::from_millis(100);
 
-fn register(app: &AppHandle, id: u64, handle: StreamHandle) {
+pub(crate) fn register(app: &AppHandle, id: u64, handle: StreamHandle) {
     app.state::<AppState>().streams.lock().insert(id, handle);
 }
 
-fn unregister(app: &AppHandle, id: u64) {
+pub(crate) fn unregister(app: &AppHandle, id: u64) {
     let removed = app.state::<AppState>().streams.lock().remove(&id);
     if removed.is_some_and(|h| h.forward.is_some()) {
         forwards_changed(app);

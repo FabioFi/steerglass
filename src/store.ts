@@ -4,7 +4,7 @@ import { PODS } from "./kinds";
 import { resolveEnv, type Env, type EnvChoice } from "./env";
 import type { Theme } from "./theme";
 
-export type DetailTab = "overview" | "resources" | "yaml" | "logs" | "shell" | "events";
+export type DetailTab = "overview" | "resources" | "yaml" | "logs" | "shell" | "events" | "ai";
 
 export interface Detail {
   ref: ObjRef;
@@ -76,7 +76,7 @@ interface State extends Persisted {
   report: LoadReport | null;
   /** Built for the Mac App Store, which updates the app itself. */
   appStore: boolean;
-  view: "overview" | "resources";
+  view: "overview" | "resources" | "ai";
   filter: string;
   selected: string | null;
   selectedRef: ObjRef | null;
@@ -91,11 +91,15 @@ interface State extends Persisted {
   toasts: Toast[];
   paletteOpen: boolean;
   settingsOpen: boolean;
+  /** The Settings section to show when it opens (then cleared). */
+  settingsSection: string | null;
   aboutOpen: boolean;
   /** "What's new" dialog: the version to list changes after ("" = all), or null when closed. */
   whatsNew: string | null;
   helpOpen: boolean;
   applyOpen: boolean;
+  /** YAML and cluster to open the Apply dialog with (a change proposed by the AI). */
+  applyDraft: { yaml: string; context: string } | null;
   confirm: Confirm | null;
 
   loadContexts: (reload?: boolean) => Promise<void>;
@@ -159,10 +163,12 @@ export const useStore = create<State>((set, get) => ({
   toasts: [],
   paletteOpen: false,
   settingsOpen: false,
+  settingsSection: null,
   aboutOpen: false,
   whatsNew: null,
   helpOpen: false,
   applyOpen: false,
+  applyDraft: null,
   confirm: null,
 
   async loadContexts(reload = false) {

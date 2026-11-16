@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { RefreshCw, Star } from "lucide-react";
+import { RefreshCw, Sparkles, Star } from "lucide-react";
 import { orderedContexts, shortcutContexts, useStore } from "../store";
 import { age, modKey, shortContext, useNow } from "../util";
 import { BUILTIN } from "../kinds";
@@ -7,6 +7,7 @@ import { resolveEnv } from "../env";
 import type { Issue } from "../api";
 import { GrantKubeDirButton } from "./Dialogs";
 import { EnvTag } from "./EnvTag";
+import { aiBlocked, explain, useAi } from "../ai";
 
 const ISSUES_EVERY_MS = 60_000;
 const MAX_LISTED = 30;
@@ -14,12 +15,15 @@ const MAX_LISTED = 30;
 const groupOf = (kind: Issue["kind"]) => (kind === "Job" ? "batch" : "");
 
 /** Opens the resource view on the object an issue is about, with its details. */
-async function openIssue(context: string, issue: Issue) {
+async function openIssue(context: string, issue: Issue, withAi = false) {
   const kind = BUILTIN.find((b) => b.ref.group === groupOf(issue.kind) && b.ref.kind === issue.kind)?.ref;
   if (!kind) return;
   const s = useStore.getState();
   await s.openResources([context], kind, issue.namespace ?? "");
-  if (useStore.getState().contexts.includes(context)) s.openDetail({ context, kind, namespace: issue.namespace, name: issue.name });
+  if (!useStore.getState().contexts.includes(context)) return;
+  const ref = { context, kind, namespace: issue.namespace, name: issue.name };
+  if (withAi) explain(ref);
+  else s.openDetail(ref);
 }
 
 export function Overview() {
@@ -30,6 +34,7 @@ export function Overview() {
   const envs = useStore((s) => s.envs);
   const { probeAll, probe, openResources, loadIssues } = useStore.getState();
   const now = useNow(5000);
+  const aiOn = useAi((s) => !!s.settings?.enabled);
 
   useEffect(() => {
     if (report) probeAll(true);
@@ -119,7 +124,8 @@ export function Overview() {
             <h2>Needs attention</h2>
             <div className="attention-list">
               {attention.slice(0, MAX_LISTED).map(({ context, issue }) => (
-                <button key={`${context}|${issue.kind}|${issue.namespace}|${issue.name}`} onClick={() => openIssue(context, issue)}>
+                <div className="attention-row" key={`${context}|${issue.kind}|${issue.namespace}|${issue.name}`}>
+                <button className="attention-open" onClick={() => openIssue(context, issue)}>
                   <span className={`hdot ${issue.kind === "Node" ? "warn" : "error"}`} />
                   <span className="attention-what">
                     <b>{issue.name}</b> {issue.reason}
@@ -130,6 +136,17 @@ export function Overview() {
                   </span>
                   <span className="attention-when muted">{issue.since ? age(issue.since, now) : ""}</span>
                 </button>
+                {aiOn && (
+                  <button
+                    className="attention-ai"
+                    onClick={() => openIssue(context, issue, true)}
+                    title={aiBlocked(context) ?? "Explain with AI"}
+                    aria-label={`Explain ${issue.name} with AI`}
+                  >
+                    <Sparkles size={13} />
+                  </button>
+                )}
+                </div>
               ))}
               {attention.length > MAX_LISTED && <div className="attention-more muted">and {attention.length - MAX_LISTED} more</div>}
             </div>

@@ -41,7 +41,9 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
-pub fn update_settings(state: State<'_, AppState>, settings: Settings) -> Result<LoadReport> {
+pub fn update_settings(state: State<'_, AppState>, mut settings: Settings) -> Result<LoadReport> {
+    // The AI settings have their own command (changing them must not reload the clusters).
+    settings.ai = state.settings.read().ai.clone();
     *state.settings.write() = settings;
     state.save_settings()?;
     Ok(state.reload())

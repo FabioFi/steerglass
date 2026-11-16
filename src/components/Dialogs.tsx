@@ -138,15 +138,17 @@ export function ApplyDialog() {
   const [busy, setBusy] = useState(false);
   const { set, toast } = useStore.getState();
 
+  const draft = useStore((s) => s.applyDraft);
   useEffect(() => {
     if (open) {
-      setCtx(contexts[0] ?? report?.contexts.find((c) => c.isCurrent)?.name ?? report?.contexts[0]?.name ?? "");
+      setCtx(draft?.context ?? contexts[0] ?? report?.contexts.find((c) => c.isCurrent)?.name ?? report?.contexts[0]?.name ?? "");
+      if (draft) setYaml(draft.yaml);
       setError(null);
     }
-  }, [open, contexts, report]);
+  }, [open, contexts, report, draft]);
 
   if (!open) return null;
-  const close = () => set({ applyOpen: false });
+  const close = () => set({ applyOpen: false, applyDraft: null });
   const apply = () =>
     guardProd(ctx, `Apply to ${ctx}?`, "The objects in the manifest are created or updated on this production cluster.", "Apply", doApply);
   const doApply = async () => {
@@ -167,6 +169,7 @@ export function ApplyDialog() {
       <div className="dialog wide tall" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.key === "Escape" && close()}>
         <div className="dialog-head">
           <h2>Apply YAML</h2>
+          {draft && <span className="muted small">Proposed by AI: review it before applying</span>}
           <select value={ctx} onChange={(e) => setCtx(e.target.value)}>
             {report?.contexts.map((c) => (
               <option key={c.name} value={c.name}>

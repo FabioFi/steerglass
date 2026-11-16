@@ -27,7 +27,64 @@ export interface Settings {
   scanKubeDir: boolean;
   excludedKubeconfigs: string[];
   hiddenContexts: string[];
+  ai: AiSettings;
 }
+
+export type AiProvider = "openai" | "anthropic" | "ollama" | "lmstudio" | "deepseek" | "mistral" | "openrouter" | "custom";
+
+/** Optional AI help. The API key isn't here: it is kept in the system keychain. */
+export interface AiSettings {
+  enabled: boolean;
+  provider: AiProvider;
+  /** Empty: the provider's usual address. */
+  baseUrl: string;
+  model: string;
+  /** Also offered on clusters marked as production. */
+  onProduction: boolean;
+  /** The language of the answers ("Italian"…); empty: English. */
+  language: string;
+}
+
+/** A change suggested by the AI in the chat, applied by the user. */
+export interface Proposal {
+  id: string;
+  cluster: string;
+  action: "scale" | "restart" | "cordon" | "uncordon" | "suspend" | "resume" | "apply";
+  kind?: KindRef | null;
+  namespace?: string | null;
+  name?: string | null;
+  replicas?: number | null;
+  manifest?: string | null;
+  reason: string;
+}
+
+/** What ⌘K in plain words turned into. */
+export type PaletteAction =
+  | { action: "navigate"; clusters?: string[]; kind?: string; namespace?: string; filter?: string; open?: string }
+  | { action: "ask" };
+
+export type ChatMsg =
+  | { type: "delta"; text: string }
+  | { type: "toolStart"; id: string; label: string }
+  | { type: "toolEnd"; id: string; ok: boolean; summary: string }
+  | { type: "proposal"; proposal: Proposal }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+export interface AiKeyStatus {
+  set: boolean;
+  storedIn?: "keychain" | "file" | null;
+}
+
+export type AiTask =
+  | { type: "explain"; context: string; kind: KindRef; namespace?: string; name: string }
+  | { type: "logs"; pod: string; container?: string; lines: string[] };
+
+export type AiMsg =
+  | { type: "sent"; text: string; destination: string }
+  | { type: "delta"; text: string }
+  | { type: "done" }
+  | { type: "error"; message: string };
 
 export interface KindRef {
   group: string;
@@ -252,4 +309,30 @@ export const api = {
   portForwards: () => invoke<ForwardInfo[]>("portforward_list"),
 
   appStoreBuild: () => invoke<boolean>("app_store_build"),
+
+  aiKeyStatus: (provider: AiProvider) => invoke<AiKeyStatus>("ai_key_status", { provider }),
+  /** An empty key removes it. */
+  aiSetKey: (provider: AiProvider, key: string) => invoke<AiKeyStatus>("ai_set_key", { provider, key }),
+  aiUpdateSettings: (ai: AiSettings) => invoke<void>("ai_update_settings", { ai }),
+  async aiChatSend(
+    p: { chat: number; text: string; contexts: { name: string; env?: string | null }[]; hiddenProduction: number; seed?: { question: string; answer: string } },
+    onMsg: (m: ChatMsg) => void,
+  ) {
+    const onEvent = new Channel<ChatMsg>();
+    onEvent.onmessage = onMsg;
+    return invoke<number>("ai_chat_send", { ...p, seed: p.seed ?? null, onEvent });
+  },
+  aiPalette: (query: string, app: { clusters: { name: string; env?: string | null }[]; kinds: string[]; namespaces: string[]; current: unknown }) =>
+    invoke<PaletteAction>("ai_palette", { query, app }),
+  aiCommand: (request: string, target: { pod?: string; container?: string; image?: string; node?: string; screen: string }) =>
+    invoke<{ command: string }>("ai_command", { request, target }),
+  aiChatReset: (chat: number) => invoke<void>("ai_chat_reset", { chat }),
+  aiModels: (ai: AiSettings) => invoke<string[]>("ai_models", { ai }),
+  /** What would be sent for a task, and where, without sending it. */
+  aiPrepare: (task: AiTask) => invoke<{ text: string; destination: string }>("ai_prepare", { task }),
+  async aiRun(task: AiTask, onMsg: (m: AiMsg) => void) {
+    const onEvent = new Channel<AiMsg>();
+    onEvent.onmessage = onMsg;
+    return invoke<number>("ai_run", { task, onEvent });
+  },
 };

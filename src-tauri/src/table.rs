@@ -161,7 +161,12 @@ async fn watch(t: &Target<'_>, layout: &[usize], rv: &mut String, tx: &mut Sende
 
 /// One-shot list of a kind as rows: server tables when possible, else whole objects.
 pub async fn list_rows(client: &Client, url: &str, group: &str, kind: &str) -> std::result::Result<Vec<Row>, String> {
-    let t = Target { client: client.clone(), url, group, kind, labels: None, fields: None };
+    list_rows_labeled(client, url, group, kind, None).await
+}
+
+/// Like [`list_rows`], only the objects matching a label selector.
+pub async fn list_rows_labeled(client: &Client, url: &str, group: &str, kind: &str, labels: Option<&str>) -> std::result::Result<Vec<Row>, String> {
+    let t = Target { client: client.clone(), url, group, kind, labels, fields: None };
     let mut layout = None;
     if rows::uses_table(group, kind) {
         match list(&t, &mut layout).await {
@@ -173,6 +178,7 @@ pub async fn list_rows(client: &Client, url: &str, group: &str, kind: &str) -> s
     }
     let req = Request::new(url);
     let mut lp = ListParams::default().limit(PAGE);
+    lp.label_selector = labels.map(String::from);
     let mut out = Vec::new();
     loop {
         let list: Value = client

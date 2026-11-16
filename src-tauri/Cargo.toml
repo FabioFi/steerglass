@@ -42,6 +42,9 @@ tauri-plugin-dialog = "2"
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 base64 = "0.23.1"
 http = "1"
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "json", "stream", "system-proxy"] }
+keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 
 [dev-dependencies]
 flate2 = "1.1"

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDownToLine, Copy, Search } from "lucide-react";
+import { ArrowDownToLine, Copy, Search, Sparkles } from "lucide-react";
 import { api, errText, type ObjRef } from "../api";
 import { useStore } from "../store";
 import { hasAnsi, parseAnsi, stripAnsi, type Span } from "../ansi";
+import { aiBlocked, summarizeLogs, useAi } from "../ai";
 
 const MAX_LINES = 50_000;
 /** Lines dropped at once when the buffer is full, so trimming isn't an O(n) shift on every batch. */
@@ -34,6 +35,7 @@ export function LogsView({ objRef, initialContainer }: { objRef: ObjRef; initial
   const trimmed = useRef(0);
   const search = useRef<{ q: string; trimmed: number; scanned: number; matches: Line[] }>({ q: "", trimmed: 0, scanned: 0, matches: [] });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const aiOn = useAi((s) => !!s.settings?.enabled);
 
   useEffect(() => {
     api.getObject(objRef).then((o) => {
@@ -150,6 +152,15 @@ export function LogsView({ objRef, initialContainer }: { objRef: ObjRef; initial
         </label>
         <div className="spacer" />
         <span className={`small ${status.startsWith("error") ? "error" : "muted"}`}>{status === "streaming" ? `${shown.length} lines` : status}</span>
+        {aiOn && (
+          <button
+            className="btn small"
+            title={aiBlocked(objRef.context) ?? `Summarize the last ${Math.min(shown.length, 600)} lines${q ? " matching the search" : ""} with AI`}
+            onClick={() => summarizeLogs(objRef, container, shown.map((l) => l.plain))}
+          >
+            <Sparkles size={12} /> Summarize
+          </button>
+        )}
         <button
           className="icon-btn"
           title="Copy visible logs"

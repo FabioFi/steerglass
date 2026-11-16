@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { Bug, Play, Server, X } from "lucide-react";
+import { Bug, Play, Server, Sparkles, X } from "lucide-react";
 import { api, errText, type ExecMsg, type ObjRef } from "../api";
 import { isDark, onThemeChange } from "../theme";
 import { guardProd } from "../store";
+import { aiBlocked, useAi } from "../ai";
 
 const termTheme = () =>
   isDark()
@@ -41,6 +42,7 @@ function useSession(
   opts: { connecting?: string; again: string; onFailure?: (msg: string, term: XTerm) => boolean },
 ) {
   const [session, setSession] = useState(0);
+  const live = useRef<{ term: XTerm; id: () => number | null } | null>(null);
   useEffect(() => {
     if (!start) return;
     const term = new XTerm({
@@ -90,8 +92,10 @@ function useSession(
     });
     ro.observe(host.current!);
     const offTheme = onThemeChange(() => (term.options.theme = termTheme()));
+    live.current = { term, id: () => id };
 
     return () => {
+      live.current = null;
       offTheme();
       disposed = true;
       ro.disconnect();
@@ -101,7 +105,90 @@ function useSession(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, session]);
-  return () => setSession((s) => s + 1);
+  return {
+    restart: () => setSession((s) => s + 1),
+    /** Types text at the prompt (not run: the user presses Enter). False without a session. */
+    type: (text: string) => {
+      const l = live.current;
+      const id = l?.id();
+      if (!l || id === null || id === undefined) return false;
+      api.execInput(id, text).catch(() => {});
+      l.term.focus();
+      return true;
+    },
+    /** The last lines of the screen, as text. */
+    screen: (lines = 40) => {
+      const buf = live.current?.term.buffer.active;
+      if (!buf) return "";
+      const out: string[] = [];
+      for (let i = Math.max(0, buf.length - 200); i < buf.length; i++) out.push(buf.getLine(i)?.translateToString(true) ?? "");
+      return out.join("\n").trimEnd().split("\n").slice(-lines).join("\n");
+    },
+  };
+}
+
+/** "Describe a command": the AI writes it at the prompt, the user reads it and presses Enter. */
+function AiCommandBar({ context, target, session, onClose }: { context: string; target: { pod?: string; container?: string; image?: string; node?: string }; session: ReturnType<typeof useSession>; onClose: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const blocked = aiBlocked(context);
+  const go = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const { command } = await api.aiCommand(text.trim(), { ...target, screen: session.screen() });
+      if (!command) setNote("The AI didn't suggest a command.");
+      else if (command.startsWith("#")) setNote(command.replace(/^#\s*/, ""));
+      else if (session.type(command)) {
+        setText("");
+        setNote("Typed at the prompt: read it, then press Enter in the terminal to run it.");
+      } else setNote(`No session: ${command}`);
+    } catch (e) {
+      setNote(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="ai-cmd">
+      <Sparkles size={13} className="ai-icon" />
+      {blocked ? (
+        <span className="muted small">{blocked}</span>
+      ) : (
+        <input
+          className="text-input"
+          autoFocus
+          value={text}
+          disabled={busy}
+          placeholder={busy ? "Writing the command…" : "Describe what to do, e.g. the 10 biggest files under /var/log"}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") go();
+            if (e.key === "Escape") onClose();
+          }}
+          spellCheck={false}
+          aria-label="Describe a command"
+        />
+      )}
+      {note && <span className="muted small ai-cmd-note">{note}</span>}
+      <button className="icon-btn" onClick={onClose} title="Close">
+        <X size={13} />
+      </button>
+    </div>
+  );
+}
+
+/** The ✨ button that opens the command bar, when AI is on. */
+function AiCommandButton({ open, onClick }: { open: boolean; onClick: () => void }) {
+  const on = useAi((s) => !!s.settings?.enabled);
+  if (!on) return null;
+  return (
+    <button className={open ? "btn small on" : "btn small"} onClick={onClick} title="Describe a command and let AI write it (you run it)">
+      <Sparkles size={12} /> Ask for a command
+    </button>
+  );
 }
 
 /** The image for a debug container or node shell: a few presets, or any image typed in. */
@@ -187,6 +274,8 @@ function PodTerminal({ objRef, initialContainer }: { objRef: ObjRef; initialCont
   const [container, setContainer] = useState<string | undefined>(initialContainer);
   const [mode, setMode] = useState<Mode>({ kind: "shell" });
   const [picker, setPicker] = useState<"closed" | "open" | "noShell">("closed");
+  const [aiBar, setAiBar] = useState(false);
+  const [images, setImages] = useState<Record<string, string>>({});
 
   const pick = (c: string) => {
     setMode({ kind: "shell" });
@@ -197,12 +286,13 @@ function PodTerminal({ objRef, initialContainer }: { objRef: ObjRef; initialCont
   useEffect(() => {
     api.getObject(objRef).then((o) => {
       setContainers((o.spec?.containers ?? []).map((c: any) => c.name));
+      setImages(Object.fromEntries((o.spec?.containers ?? []).map((c: any) => [c.name, c.image])));
       setContainer((c) => c ?? o.spec?.containers?.[0]?.name);
     });
   }, [objRef]);
 
   const pod = { context: objRef.context, namespace: objRef.namespace!, pod: objRef.name };
-  const restart = useSession(
+  const session = useSession(
     host,
     !container
       ? null
@@ -230,7 +320,7 @@ function PodTerminal({ objRef, initialContainer }: { objRef: ObjRef; initialCont
       () => {
         setPicker("closed");
         setMode({ kind: "debug", image });
-        restart();
+        session.restart();
       },
     );
 
@@ -262,7 +352,16 @@ function PodTerminal({ objRef, initialContainer }: { objRef: ObjRef; initialCont
         >
           <Bug size={12} /> Debug container
         </button>
+        <AiCommandButton open={aiBar} onClick={() => setAiBar((o) => !o)} />
       </div>
+      {aiBar && (
+        <AiCommandBar
+          context={objRef.context}
+          target={{ pod: objRef.name, container, image: mode.kind === "debug" ? mode.image : images[container ?? ""] }}
+          session={session}
+          onClose={() => setAiBar(false)}
+        />
+      )}
       {picker !== "closed" && (
         <ImagePicker
           title={picker === "noShell" ? "No shell in this container" : "Debug container"}
@@ -283,7 +382,8 @@ function PodTerminal({ objRef, initialContainer }: { objRef: ObjRef; initialCont
 function NodeTerminal({ objRef }: { objRef: ObjRef }) {
   const host = useRef<HTMLDivElement>(null);
   const [image, setImage] = useState<string | null>(null);
-  const restart = useSession(
+  const [aiBar, setAiBar] = useState(false);
+  const session = useSession(
     host,
     image ? (size, onMsg) => api.nodeShell({ context: objRef.context, node: objRef.name, image, ...size }, onMsg) : null,
     [objRef, image],
@@ -300,8 +400,11 @@ function NodeTerminal({ objRef }: { objRef: ObjRef }) {
           <button className="btn small" onClick={() => setImage(null)} title="Choose another image">
             Change image
           </button>
+          <AiCommandButton open={aiBar} onClick={() => setAiBar((o) => !o)} />
         </div>
-      ) : (
+      ) : null}
+      {image && aiBar && <AiCommandBar context={objRef.context} target={{ node: objRef.name }} session={session} onClose={() => setAiBar(false)} />}
+      {!image && (
         <ImagePicker
           title={`Shell on node ${objRef.name}`}
           startLabel="Start node shell"
@@ -313,7 +416,7 @@ function NodeTerminal({ objRef }: { objRef: ObjRef }) {
               "Start",
               () => {
                 setImage(img);
-                restart();
+                session.restart();
               },
             )
           }

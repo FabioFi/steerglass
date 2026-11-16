@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { CircleHelp, EyeOff, LayoutGrid, Search, Settings, Star, Upload } from "lucide-react";
+import { CircleHelp, EyeOff, LayoutGrid, Search, Settings, Sparkles, Star, Upload } from "lucide-react";
+import { useAi } from "../ai";
 import { orderedContexts, shortcutContexts, useStore } from "../store";
 import { CATEGORIES, customGroups, kindKey } from "../kinds";
 import { fuzzy, isMac, modKey, shortContext } from "../util";
@@ -11,6 +12,7 @@ export function Sidebar() {
   const report = useStore((s) => s.report);
   const contexts = useStore((s) => s.contexts);
   const view = useStore((s) => s.view);
+  const aiOn = useAi((s) => !!s.settings?.enabled);
   const kind = useStore((s) => s.kind);
   const favorites = useStore((s) => s.favorites);
   const probes = useStore((s) => s.probes);
@@ -52,6 +54,11 @@ export function Sidebar() {
       <button className={`nav-item ${view === "overview" ? "active" : ""}`} onClick={() => set({ view: "overview" })}>
         <LayoutGrid size={14} /> Overview
       </button>
+      {aiOn && (
+        <button className={`nav-item ${view === "ai" ? "active" : ""}`} onClick={() => set({ view: "ai" })} title="Ask AI about your clusters (⌘J)">
+          <Sparkles size={14} /> Ask AI
+        </button>
+      )}
 
       <div className="section-title">
         Clusters <span className="muted">{report?.contexts.length ?? 0}</span>

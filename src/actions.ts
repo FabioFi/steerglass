@@ -1,5 +1,6 @@
 import { api, errText, type ObjRef } from "./api";
 import { restartable, scalable } from "./kinds";
+import { aiEnabled, canExplain, explain } from "./ai";
 import { guardProd, isProdLike, prodWarning, useStore, type DetailTab } from "./store";
 
 export interface Action {
@@ -36,6 +37,7 @@ export function actionsFor(ref: ObjRef): Action[] {
   if (kind.group === "" && kind.kind === "Node") list.push({ id: "shell", label: "Node shell", shortcut: "S", run: open("shell") });
   list.push({ id: "yaml", label: "Edit YAML", shortcut: "E", run: open("yaml") });
   list.push({ id: "events", label: "Events", run: open("events") });
+  if (aiEnabled() && canExplain(ref)) list.push({ id: "explain", label: "Explain with AI", shortcut: "A", run: () => explain(ref) });
 
   if (scalable(kind)) {
     list.push({
@@ -137,7 +139,7 @@ function confirmIfNeeded(ref: ObjRef, title: string, body: string, confirmLabel:
 }
 
 export function runShortcut(ref: ObjRef, key: string): boolean {
-  const map: Record<string, string> = { l: "logs", s: "shell", e: "yaml", y: "yaml", r: "restart", c: "copy", Delete: "delete", Backspace: "delete" };
+  const map: Record<string, string> = { a: "explain", l: "logs", s: "shell", e: "yaml", y: "yaml", r: "restart", c: "copy", Delete: "delete", Backspace: "delete" };
   const id = map[key];
   if (!id) return false;
   const a = actionsFor(ref).find((x) => x.id === id);
