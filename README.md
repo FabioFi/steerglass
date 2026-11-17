@@ -13,6 +13,8 @@
   <img src="https://img.shields.io/badge/built%20with-Rust%20%2B%20Tauri%202-orange" alt="Built with Rust and Tauri 2">
 </p>
 
+<p align="center"><a href="https://www.producthunt.com/posts/steerglass"><img src="website/media/producthunt.svg" alt="Steerglass on Product Hunt" width="202" height="54"></a></p>
+
 <p align="center"><img src="assets/screenshots/pods.jpg" alt="Steerglass showing the pods of five clusters in one live table, with their environments" width="900"></p>
 
 Steerglass is for people who work in many clusters every day: production in two regions, staging,
