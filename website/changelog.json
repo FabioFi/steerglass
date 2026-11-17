@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.4.1",
+    "date": "2026-11-17",
+    "title": "Select many rows, act on all of them",
+    "items": [
+      "Select several rows in any table: Space selects the row and moves on, ⌘-click (Ctrl-click) adds one, ⇧-click selects a range, and ⌘A selects every row the filter and health chips leave visible. Esc clears the selection.",
+      "Delete, restart or copy the names of all selected rows at once, with ⌫, R and C or from the bar at the bottom. Rows from several clusters work together: one confirmation lists them by cluster.",
+      "On production clusters, deleting several objects asks you to type \"delete\" and their count (for example delete 12). Deleting pods offers Force for pods stuck in Terminating.",
+      "If some deletes fail, the others still go through: the message says how many failed and why, and only the failed rows stay selected.",
+      "A health chip you turned on (like Failing) no longer disappears when its count drops to zero, so the table never stays empty with no way back."
+    ]
+  },
+  {
     "version": "0.4.0",
     "date": "2026-11-16",
     "title": "AI help, with your own model",
