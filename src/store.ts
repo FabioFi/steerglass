@@ -29,7 +29,11 @@ export interface Confirm {
   input?: string;
   /** A production context the change goes to: the dialog says so in red. */
   prod?: string;
-  onConfirm: (value: string) => void | Promise<void>;
+  /** Objects the change goes to, grouped by cluster (bulk actions); long lists are shortened. */
+  list?: { group: string; items: string[] }[];
+  /** An optional checkbox (e.g. "Force"); its state is passed to onConfirm. */
+  check?: string;
+  onConfirm: (value: string, checked: boolean) => void | Promise<void>;
 }
 
 type Probe = { state: "loading" } | { state: "ok"; data: ClusterSummary } | { state: "error"; error: string };
@@ -80,6 +84,8 @@ interface State extends Persisted {
   filter: string;
   selected: string | null;
   selectedRef: ObjRef | null;
+  /** Rows marked for a bulk action (Space, ⌘-click, shift-click, ⌘A), by row key. */
+  marked: Map<string, ObjRef>;
   detail: Detail | null;
   probes: Record<string, Probe>;
   issues: Record<string, Issues>;
@@ -121,6 +127,9 @@ interface State extends Persisted {
   setNamespace: (ns: string) => void;
   setFilter: (f: string) => void;
   select: (key: string | null, ref?: ObjRef) => void;
+  /** Marks or unmarks rows; `on` undefined toggles each. */
+  mark: (rows: [key: string, ref: ObjRef][], on?: boolean) => void;
+  clearMarks: () => void;
   openDetail: (ref: ObjRef, tab?: DetailTab, container?: string) => void;
   closeDetail: () => void;
   setDetailTab: (tab: DetailTab, container?: string) => void;
@@ -153,6 +162,7 @@ export const useStore = create<State>((set, get) => ({
   filter: "",
   selected: null,
   selectedRef: null,
+  marked: new Map(),
   detail: null,
   probes: {},
   issues: {},
@@ -261,6 +271,7 @@ export const useStore = create<State>((set, get) => ({
       kind: kind ?? s.kind,
       namespace: namespace ?? (contexts.length === 1 && !sameContexts(contexts, s.contexts) ? "" : s.namespace),
       selected: null,
+      marked: new Map(),
       filter: "",
     }));
     contexts.forEach((c) => {
@@ -278,15 +289,26 @@ export const useStore = create<State>((set, get) => ({
     get().openResources(next);
   },
 
-  setKind: (kind) => set({ kind, selected: null, view: "resources" }),
+  setKind: (kind) => set((s) => ({ kind, selected: null, marked: sameKind(kind, s.kind) ? s.marked : new Map(), view: "resources" })),
   setNamespace: (namespace) =>
     set((s) => ({
       namespace,
       selected: null,
+      marked: new Map(),
       recentNamespaces: namespace ? [namespace, ...s.recentNamespaces.filter((n) => n !== namespace)].slice(0, 8) : s.recentNamespaces,
     })),
   setFilter: (filter) => set({ filter }),
   select: (selected, ref) => set({ selected, selectedRef: selected ? (ref ?? null) : null }),
+  mark: (rows, on) =>
+    set((s) => {
+      const marked = new Map(s.marked);
+      for (const [key, ref] of rows) {
+        if (on ?? !marked.has(key)) marked.set(key, ref);
+        else marked.delete(key);
+      }
+      return { marked };
+    }),
+  clearMarks: () => set((s) => (s.marked.size ? { marked: new Map() } : {})),
   openDetail: (ref, tab = "overview", container) => set({ detail: { ref, tab, container } }),
   closeDetail: () => set({ detail: null }),
   setDetailTab: (tab, container) => {
@@ -326,6 +348,8 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 }));
+
+const sameKind = (a: KindRef, b: KindRef) => a.group === b.group && a.version === b.version && a.plural === b.plural;
 
 function sameContexts(a: string[], b: string[]) {
   return a.length === b.length && a.every((x) => b.includes(x));

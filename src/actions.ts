@@ -147,3 +147,121 @@ export function runShortcut(ref: ObjRef, key: string): boolean {
   a.run();
   return true;
 }
+
+// ---------------------------------------------------------------- bulk actions (marked rows)
+
+const plural = (n: number, ref: ObjRef) => `${n} ${n === 1 ? ref.kind.kind.toLowerCase() : ref.kind.plural}`;
+
+/** Objects grouped by cluster for the confirmation dialog, clusters and names sorted. */
+export function groupByCluster(refs: ObjRef[]): { group: string; items: string[] }[] {
+  const by = new Map<string, string[]>();
+  for (const r of refs) {
+    const list = by.get(r.context) ?? [];
+    list.push(r.namespace ? `${r.namespace}/${r.name}` : r.name);
+    by.set(r.context, list);
+  }
+  return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([group, items]) => ({ group, items: items.sort() }));
+}
+
+/** One line for the result of a bulk action: "Deleted 12 pods" or "Deleted 11 of 12 pods · 1 failed: forbidden". */
+export function bulkSummary(verb: string, refs: ObjRef[], errors: (string | null)[]): { text: string; ok: boolean } {
+  const failed = errors.map((e, i) => [e, refs[i]] as const).filter(([e]) => e);
+  if (failed.length === 0) return { text: `${verb} ${plural(refs.length, refs[0])}`, ok: true };
+  const [first, ref] = failed[0];
+  const done = refs.length - failed.length;
+  return {
+    text: `${verb} ${done} of ${plural(refs.length, refs[0])} · ${failed.length} failed (${ref.name}: ${first}${failed.length > 1 ? ", …" : ""})`,
+    ok: false,
+  };
+}
+
+/** After a bulk action, only the rows that failed stay marked, to retry or look at. */
+function keepMarked(refs: ObjRef[], errors: (string | null)[]) {
+  const failed = new Set(refs.filter((_, i) => errors[i]));
+  const marked = new Map([...st().marked].filter(([, r]) => failed.has(r)));
+  st().set({ marked });
+}
+
+const prodContexts = (refs: ObjRef[]) => [...new Set(refs.map((r) => r.context))].filter(isProdLike).sort();
+
+export function bulkActionsFor(refs: ObjRef[]): Action[] {
+  if (refs.length === 0) return [];
+  const { kind } = refs[0];
+  const what = plural(refs.length, refs[0]);
+  const list: Action[] = [];
+  if (restartable(kind)) {
+    list.push({
+      id: "restart",
+      label: `Restart ${what}`,
+      shortcut: "R",
+      run: () => {
+        const prod = prodContexts(refs).filter((c) => prodWarning(c));
+        st().ask({
+          title: `Restart ${what}?`,
+          body: "Their pods will be replaced with a rolling update.",
+          confirmLabel: "Restart",
+          list: groupByCluster(refs),
+          prod: prod.length ? prod.join(", ") : undefined,
+          onConfirm: async () => {
+            const errors = await Promise.all(refs.map((r) => api.rolloutRestart(r).then(() => null, (e) => errText(e))));
+            const s = bulkSummary("Restarted", refs, errors);
+            st().toast(s.text, s.ok ? "success" : "error");
+            keepMarked(refs, errors);
+          },
+        });
+      },
+    });
+  }
+  list.push({
+    id: "copy",
+    label: "Copy names",
+    shortcut: "C",
+    run: () => {
+      navigator.clipboard.writeText(refs.map((r) => r.name).join("\n"));
+      st().toast(`Copied ${refs.length} names`);
+    },
+  });
+  if (!kind.verbs || kind.verbs.length === 0 || kind.verbs.includes("delete")) {
+    const isPod = kind.group === "" && kind.kind === "Pod";
+    list.push({
+      id: "delete",
+      label: `Delete ${what}`,
+      shortcut: "⌫",
+      danger: true,
+      run: () => {
+        // Typing every name is impractical: on production the user types the count instead.
+        const prod = prodContexts(refs);
+        st().ask({
+          title: `Delete ${what}?`,
+          body: `This cannot be undone.${isPod ? " Pods run by a Deployment, StatefulSet, DaemonSet or Job are replaced by new ones." : ""}`,
+          confirmLabel: "Delete",
+          danger: true,
+          list: groupByCluster(refs),
+          typeToConfirm: prod.length ? `delete ${refs.length}` : undefined,
+          prod: prod.length ? prod.join(", ") : undefined,
+          check: isPod ? "Force: skip the grace period (for pods stuck in Terminating)" : undefined,
+          onConfirm: async (_, force) => {
+            let errors: (string | null)[];
+            try {
+              errors = await api.deleteObjects(kind, refs, force);
+            } catch (e) {
+              return st().toast(errText(e), "error");
+            }
+            const s = bulkSummary("Deleted", refs, errors);
+            st().toast(s.text, s.ok ? "success" : "error");
+            keepMarked(refs, errors);
+          },
+        });
+      },
+    });
+  }
+  return list;
+}
+
+export function runBulkShortcut(refs: ObjRef[], key: string): boolean {
+  const map: Record<string, string> = { r: "restart", c: "copy", Delete: "delete", Backspace: "delete" };
+  const a = bulkActionsFor(refs).find((x) => x.id === map[key]);
+  if (!a) return false;
+  a.run();
+  return true;
+}

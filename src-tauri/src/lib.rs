@@ -135,6 +135,7 @@ pub fn run() {
             commands::replace_yaml,
             commands::apply_manifest,
             commands::delete_object,
+            commands::delete_objects,
             commands::scale,
             commands::rollout_restart,
             commands::set_cordon,

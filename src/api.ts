@@ -243,6 +243,9 @@ export const api = {
   applyManifest: (context: string, yaml: string, defaultNamespace?: string) =>
     invoke<string[]>("apply_manifest", { context, yaml, defaultNamespace }),
   deleteObject: (r: ObjRef, force = false) => invoke<void>("delete_object", { ...r, force }),
+  /** Deletes objects of one kind across clusters; one entry per ref, null when deleted, else the error. */
+  deleteObjects: (kind: KindRef, refs: ObjRef[], force = false) =>
+    invoke<(string | null)[]>("delete_objects", { kind, items: refs.map((r) => ({ context: r.context, namespace: r.namespace ?? null, name: r.name })), force }),
   scale: (r: ObjRef, replicas: number) => invoke<void>("scale", { ...r, replicas }),
   rolloutRestart: (r: ObjRef) => invoke<void>("rollout_restart", { ...r }),
   setCordon: (context: string, name: string, cordon: boolean) => invoke<void>("set_cordon", { context, name, cordon }),

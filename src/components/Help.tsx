@@ -33,6 +33,17 @@ const SECTIONS: { title: string; rows: Row[] }[] = [
     ],
   },
   {
+    title: "Select many rows",
+    rows: [
+      [["Space"], "Select the row and move to the next one"],
+      [[`${modKey}-click`], "Select or unselect a row"],
+      [["⇧-click"], "Select every row from the current one to the clicked one"],
+      [[`${modKey}A`], "Select every visible row (after the filter and health chips)"],
+      [["⌫", "R", "C"], "Delete, restart or copy the names of all selected rows"],
+      [["Esc"], "Clear the selection"],
+    ],
+  },
+  {
     title: "Actions on the selected row",
     rows: [
       [["L"], "Logs (pods)"],
@@ -58,7 +69,7 @@ const TIPS: [string, string][] = [
   ["Filter syntax", "Words are matched on name, namespace and every column (all words must match). Type status:bad to see only failing or warning rows, or status:error, status:warn, status:ok."],
   ["Health colors", "The dot before each name is green when healthy, yellow when degraded or in progress, red when failing, grey when neutral (e.g. completed jobs)."],
   ["Port-forward", "Click a container port in a pod's details, or a port in a service's details. While it runs the port shows the local address, with buttons to open it, copy it and stop it. Settings lists every active forward."],
-  ["Production safety", "On contexts whose name contains prod, prd, production or live, delete and restart require typing the object name, and YAML saves ask for confirmation."],
+  ["Production safety", "On contexts whose name contains prod, prd, production or live, delete and restart require typing the object name (deleting several objects at once: \"delete\" and their count, e.g. delete 12), and YAML saves ask for confirmation."],
   ["Kubeconfig", "Steerglass reads $KUBECONFIG, ~/.kube/config and the other kubeconfig files in ~/.kube, like kubectl. Credential plugins (gcloud, aws, kubelogin) work as in your terminal."],
   ["Custom resources", "CRDs installed in the first selected cluster appear under Custom resources in the sidebar and in the command palette."],
 ];

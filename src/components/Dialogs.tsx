@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
 import { FolderOpen } from "lucide-react";
 import { api, errText } from "../api";
-import { guardProd, useStore } from "../store";
+import { envOf, guardProd, useStore } from "../store";
 import { EnvTag } from "./EnvTag";
 
 const CodeEditor = lazy(() => import("./YamlEditor").then((m) => ({ default: m.CodeEditor })));
@@ -25,11 +25,13 @@ export function ConfirmDialog() {
   const [typed, setTyped] = useState("");
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     setTyped("");
     setValue(c?.input ?? "");
     setBusy(false);
+    setChecked(false);
   }, [c]);
 
   if (!c) return null;
@@ -39,7 +41,7 @@ export function ConfirmDialog() {
     if (blocked) return;
     setBusy(true);
     try {
-      await c.onConfirm(value);
+      await c.onConfirm(value, checked);
     } finally {
       close();
     }
@@ -62,6 +64,13 @@ export function ConfirmDialog() {
         )}
         <h2>{c.title}</h2>
         {c.body && <p>{c.body}</p>}
+        {c.list && <ConfirmList groups={c.list} />}
+        {c.check && (
+          <label className="confirm-check">
+            <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+            {c.check}
+          </label>
+        )}
         {c.input !== undefined && <input autoFocus className="text-input" value={value} onChange={(e) => setValue(e.target.value)} />}
         {c.typeToConfirm !== undefined && (
           <>
@@ -85,6 +94,34 @@ export function ConfirmDialog() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The objects a bulk action goes to, by cluster: the first ones by name, then "and N more". */
+const LIST_MAX = 10;
+function ConfirmList({ groups }: { groups: { group: string; items: string[] }[] }) {
+  let left = LIST_MAX;
+  return (
+    <div className="confirm-list">
+      {groups.map(({ group, items }) => {
+        const shown = items.slice(0, Math.max(0, left));
+        left -= shown.length;
+        const more = items.length - shown.length;
+        return (
+          <div key={group}>
+            <div className="confirm-group">
+              <EnvTag env={envOf(group)} /> <span className="mono">{group}</span> <span className="muted">· {items.length}</span>
+            </div>
+            {shown.map((n) => (
+              <div key={n} className="mono confirm-item">
+                {n}
+              </div>
+            ))}
+            {more > 0 && <div className="muted confirm-item">and {more} more</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }

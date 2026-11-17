@@ -111,6 +111,7 @@ How it compares with Lens, k9s and Headlamp: [steerglass.com/compare](https://st
 | ↑↓ / j k | Move selection, ↵ open details, Esc close |
 | L / S / E | Logs / Shell / Edit YAML of the selected object |
 | R / ⌫ / C | Rollout restart / Delete / Copy name |
+| Space / ⌘-click / ⇧-click / ⌘A | Select several rows (⌘A: every visible row), then ⌫ / R / C act on all of them |
 | A | Explain with AI (optional, see above) |
 | ⌘J | Ask AI: questions about your clusters |
 | N | Pick a namespace (type to search) |

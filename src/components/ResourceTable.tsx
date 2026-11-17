@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
 import { useStore } from "../store";
 import { useWatch, type CtxRow } from "../useWatch";
 import { kindLabel } from "../kinds";
-import { actionsFor, runShortcut, type Action } from "../actions";
+import { actionsFor, bulkActionsFor, runBulkShortcut, runShortcut, type Action } from "../actions";
 import { NamespacePicker } from "./NamespacePicker";
 import { age, fuzzy, modKey, shortContext, typingIn, useNow } from "../util";
 import type { Health, ObjRef } from "../api";
@@ -65,6 +65,7 @@ export function ResourceTable() {
   const namespace = useStore((s) => s.namespace);
   const filter = useStore((s) => s.filter);
   const selected = useStore((s) => s.selected);
+  const marked = useStore((s) => s.marked);
   const detailOpen = useStore((s) => !!s.detail);
   const namespacesByCtx = useStore((s) => s.namespaces);
   const envs = useStore((s) => s.envs);
@@ -87,7 +88,7 @@ export function ResourceTable() {
   );
   const nodeOf = useCallback((r: CtxRow): NodeUsage | undefined => (isNodes ? nodeIndex.get(`${r.context}|${r.name}`) : undefined), [isNodes, nodeIndex]);
   useEffect(() => setHealthFilter(null), [contexts, kind]);
-  const { setFilter, select, openDetail } = useStore.getState();
+  const { setFilter, select, openDetail, mark, clearMarks } = useStore.getState();
 
   const { rows, columns, synced, errors } = useWatch(contexts, kind, namespace);
   const now = useNow(5000);
@@ -191,8 +192,15 @@ export function ResourceTable() {
         }
         return;
       }
+      if (e.key === "a" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !typingIn(e) && !inDetail(e)) {
+        // Marks every row the filter and health chips leave visible.
+        e.preventDefault();
+        mark(visible.map((r) => [r.key, refOf(r)]), true);
+        return;
+      }
       if (typingIn(e) || e.metaKey || e.ctrlKey || e.altKey) return;
       const row = selectedIdx >= 0 ? visible[selectedIdx] : null;
+      const marks = st.marked;
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         moveSelection(1);
@@ -209,19 +217,27 @@ export function ResourceTable() {
         moveSelection(-visible.length);
       } else if (e.key === "End" || e.key === "G") {
         moveSelection(visible.length);
+      } else if (e.key === " " && row) {
+        // Space marks the row and moves on, like a file manager.
+        e.preventDefault();
+        mark([[row.key, refOf(row)]]);
+        moveSelection(1);
       } else if (e.key === "Enter" && row) {
         openDetail(refOf(row));
       } else if (e.key === "Escape") {
         if (useStore.getState().detail) useStore.getState().closeDetail();
+        else if (marks.size) clearMarks();
         else if (filter) setFilter("");
         else select(null);
+      } else if (marks.size) {
+        if (runBulkShortcut([...marks.values()], e.key)) e.preventDefault();
       } else if (row && runShortcut(refOf(row), e.key)) {
         e.preventDefault();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [visible, selectedIdx, moveSelection, filter, setFilter, select, openDetail, refOf]);
+  }, [visible, selectedIdx, moveSelection, filter, setFilter, select, openDetail, refOf, mark, clearMarks]);
 
   useEffect(() => {
     if (!menu) return;
@@ -248,6 +264,36 @@ export function ResourceTable() {
   }, [contexts, namespacesByCtx]);
 
   const loading = contexts.some((c) => !synced.has(c));
+
+  // Rows that are gone (deleted, or moved out by a namespace change) leave the marked set.
+  useEffect(() => {
+    if (loading || marked.size === 0) return;
+    const live = new Set(rows.map((r) => r.key));
+    const gone = [...marked.keys()].filter((k) => !live.has(k));
+    if (gone.length) mark(gone.map((k) => [k, marked.get(k)!]), false);
+  }, [rows, loading, marked, mark]);
+  const markedRefs = useMemo(() => [...marked.values()], [marked]);
+  const hiddenMarks = useMemo(() => {
+    if (marked.size === 0) return 0;
+    const shown = new Set(visible.map((r) => r.key));
+    return [...marked.keys()].filter((k) => !shown.has(k)).length;
+  }, [marked, visible]);
+  const bulkActions = useMemo(() => bulkActionsFor(markedRefs), [markedRefs]);
+
+  // Rows are memoized and keep their first handlers: these read the latest state through a ref.
+  const latest = useRef({ markRange: (_: CtxRow) => {}, marked, bulkActions });
+  /** Shift-click: marks every visible row between the cursor and the clicked one. */
+  const markRange = useCallback(
+    (row: CtxRow) => {
+      const to = visible.findIndex((r) => r.key === row.key);
+      const from = selectedIdx >= 0 ? selectedIdx : to;
+      const [a, b] = from < to ? [from, to] : [to, from];
+      mark(visible.slice(a, b + 1).map((r) => [r.key, refOf(r)]), true);
+      select(row.key, refOf(row));
+    },
+    [visible, selectedIdx, mark, select, refOf],
+  );
+  latest.current = { markRange, marked, bulkActions };
   const errorList = Object.entries(errors);
   const healthCounts = useMemo(() => {
     const n: Record<Health, number> = { ok: 0, warn: 0, error: 0, neutral: 0 };
@@ -320,7 +366,8 @@ export function ResourceTable() {
           <button className={`hchip ${healthFilter === null ? "on" : ""}`} onClick={() => setHealthFilter(null)}>
             All <span>{rows.length}</span>
           </button>
-          {HEALTH_CHIPS.filter(([h]) => healthCounts[h] > 0).map(([h, label]) => (
+          {/* The active chip stays even at 0 (e.g. after deleting every failing pod), so it can be turned off. */}
+          {HEALTH_CHIPS.filter(([h]) => healthCounts[h] > 0 || healthFilter === h).map(([h, label]) => (
             <button key={h} className={`hchip ${healthFilter === h ? "on" : ""}`} onClick={() => setHealthFilter(healthFilter === h ? null : h)}>
               <i className={`hdot ${h}`} />
               {label} <span>{healthCounts[h]}</span>
@@ -368,13 +415,22 @@ export function ResourceTable() {
                   top={v.start}
                   height={rowH}
                   selected={r.key === selected}
+                  marked={marked.has(r.key)}
                   usage={usageOf(r)}
                   node={nodeOf(r)}
-                  onSelect={(row) => select(row.key, refOf(row))}
+                  onSelect={(row, e) => {
+                    if (e.shiftKey) latest.current.markRange(row);
+                    else if (e.metaKey || e.ctrlKey) {
+                      mark([[row.key, refOf(row)]]);
+                      select(row.key, refOf(row));
+                    } else select(row.key, refOf(row));
+                  }}
                   onOpen={(row) => openDetail(refOf(row))}
                   onMenu={(row, x, y) => {
                     select(row.key, refOf(row));
-                    setMenu({ x, y, actions: actionsFor(refOf(row)) });
+                    // On a marked row the menu acts on all the marked rows.
+                    const { marked, bulkActions } = latest.current;
+                    setMenu({ x, y, actions: marked.has(row.key) && marked.size > 1 ? bulkActions : actionsFor(refOf(row)) });
                   }}
                 />
               );
@@ -382,7 +438,24 @@ export function ResourceTable() {
           </div>
         </div>
       </div>
-      {!detailOpen && (
+      {marked.size > 0 && (
+        <footer className="bulk-bar">
+          <b>{marked.size} selected</b>
+          {hiddenMarks > 0 && <span className="warn-text">{hiddenMarks} hidden by the filter</span>}
+          <span className="muted">Space marks · shift-click a range · {modKey}A all visible</span>
+          <span className="spacer" />
+          {bulkActions.map((a) => (
+            <button key={a.id} className={a.danger ? "danger" : ""} onClick={a.run}>
+              {a.label}
+              {a.shortcut && <kbd>{a.shortcut}</kbd>}
+            </button>
+          ))}
+          <button onClick={clearMarks}>
+            Clear <kbd>Esc</kbd>
+          </button>
+        </footer>
+      )}
+      {!detailOpen && marked.size === 0 && (
         <footer className="hint">
           <span>↑↓ navigate</span>
           <span>↵ details</span>
@@ -394,6 +467,7 @@ export function ResourceTable() {
           )}
           <span>E yaml</span>
           <span>⌫ delete</span>
+          <span>Space select</span>
           <span>{modKey}K commands</span>
           <span>? help</span>
         </footer>
@@ -411,6 +485,12 @@ export function ResourceTable() {
       )}
     </div>
   );
+}
+
+/** ⌘A in the detail panel (logs, YAML, events) keeps selecting text there. */
+function inDetail(e: KeyboardEvent) {
+  const inside = (n: Node | null | undefined) => !!(n instanceof Element ? n : n?.parentElement)?.closest(".detail");
+  return inside(e.target as Node) || inside(document.activeElement) || inside(window.getSelection()?.anchorNode);
 }
 
 /** Cell content: status pills, readiness bars and recent restarts get a visual form. */
@@ -459,21 +539,26 @@ interface TableRowProps {
   top: number;
   height: number;
   selected: boolean;
+  marked: boolean;
   usage?: PodUsage;
   node?: NodeUsage;
-  onSelect: (r: CtxRow) => void;
+  onSelect: (r: CtxRow, e: React.MouseEvent) => void;
   onOpen: (r: CtxRow) => void;
   onMenu: (r: CtxRow, x: number, y: number) => void;
 }
 
 /** Memoized: a live update re-renders only the rows that changed, moved or got selected. */
 const TableRow = memo(
-  function TableRow({ row: r, headers, colIndex, now, top, height, selected, usage, node, onSelect, onOpen, onMenu }: TableRowProps) {
+  function TableRow({ row: r, headers, colIndex, now, top, height, selected, marked, usage, node, onSelect, onOpen, onMenu }: TableRowProps) {
     return (
       <div
-        className={`tr h-${r.health} ${selected ? "selected" : ""}`}
+        className={`tr h-${r.health} ${selected ? "selected" : ""} ${marked ? "marked" : ""}`}
         style={{ transform: `translateY(${top}px)`, height }}
-        onClick={() => onSelect(r)}
+        onMouseDown={(e) => {
+          // Shift-click would otherwise select the text between the two rows.
+          if (e.shiftKey) e.preventDefault();
+        }}
+        onClick={(e) => onSelect(r, e)}
         onDoubleClick={() => onOpen(r)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -484,6 +569,11 @@ const TableRow = memo(
           const val = h === "Age" ? age(r.created, now) : sortValue(r, h, colIndex);
           return (
             <div key={h} className={`td ${h === "Name" ? "name" : ""} ${MONO.has(h) ? "mono-cell" : ""}`} title={val}>
+              {h === "Name" && marked && (
+                <span className="mark" aria-label="Selected">
+                  <Check size={10} strokeWidth={3.2} />
+                </span>
+              )}
               {h === "Name" && <span className={`hdot ${r.health}`} />}
               {(h === "CPU" || h === "Memory") && (usage || node) ? (
                 usage ? (
@@ -508,6 +598,7 @@ const TableRow = memo(
     a.top === b.top &&
     a.height === b.height &&
     a.selected === b.selected &&
+    a.marked === b.marked &&
     a.usage === b.usage &&
     a.node === b.node &&
     (a.now === b.now || !a.headers.includes("Age")),

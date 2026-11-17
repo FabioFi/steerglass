@@ -458,6 +458,75 @@ pub async fn delete_object(
     Ok(())
 }
 
+/// One object of a bulk delete: all of them share the kind of the table they were picked in.
+#[derive(Debug, Clone, Deserialize)]
+pub struct DeleteTarget {
+    pub context: String,
+    pub namespace: Option<String>,
+    pub name: String,
+}
+
+/// At most this many deletes in flight per cluster, so a big selection doesn't flood an API server.
+const DELETE_PARALLEL: usize = 8;
+
+/// Deletes many objects, clusters in parallel. Returns one entry per target, in order: `None` when
+/// it was deleted (or was already gone), else the error. One failure never stops the others.
+#[tauri::command]
+pub async fn delete_objects(
+    state: State<'_, AppState>,
+    kind: KindRef,
+    items: Vec<DeleteTarget>,
+    force: Option<bool>,
+) -> Result<Vec<Option<String>>> {
+    use futures::stream::{self, StreamExt};
+    use std::collections::BTreeMap;
+
+    let dp = if force.unwrap_or(false) {
+        DeleteParams { grace_period_seconds: Some(0), ..Default::default() }
+    } else {
+        DeleteParams::default()
+    };
+    let mut by_ctx: BTreeMap<String, Vec<(usize, Option<String>, String)>> = BTreeMap::new();
+    for (i, t) in items.iter().enumerate() {
+        by_ctx.entry(t.context.clone()).or_default().push((i, t.namespace.clone(), t.name.clone()));
+    }
+    let mut tasks = Vec::new();
+    for (ctx, targets) in by_ctx {
+        let client = state.client(&ctx).await;
+        let (kind, dp) = (kind.clone(), dp.clone());
+        tasks.push(async move {
+            let client = match client {
+                Ok(c) => c,
+                Err(e) => {
+                    let msg = e.to_string();
+                    return targets.into_iter().map(|(i, _, _)| (i, Some(msg.clone()))).collect::<Vec<_>>();
+                }
+            };
+            stream::iter(targets)
+                .map(move |(i, ns, name)| {
+                    let api = dyn_api(client.clone(), &kind, ns.as_deref());
+                    let dp = dp.clone();
+                    async move {
+                        match api.delete(&name, &dp).await {
+                            Ok(_) => (i, None),
+                            // Gone already (deleted by its controller or by someone else): that's what was asked.
+                            Err(kube::Error::Api(e)) if e.code == 404 => (i, None),
+                            Err(e) => (i, Some(Error::from(e).to_string())),
+                        }
+                    }
+                })
+                .buffer_unordered(DELETE_PARALLEL)
+                .collect::<Vec<_>>()
+                .await
+        });
+    }
+    let mut out = vec![None; items.len()];
+    for (i, r) in futures::future::join_all(tasks).await.into_iter().flatten() {
+        out[i] = r;
+    }
+    Ok(out)
+}
+
 async fn merge_patch(state: &AppState, context: &str, kind: &KindRef, namespace: Option<&str>, name: &str, patch: Value) -> Result<()> {
     let api = dyn_api(state.client(context).await?, kind, namespace);
     api.patch(name, &PatchParams { field_manager: Some(FIELD_MANAGER.into()), ..Default::default() }, &Patch::Merge(&patch))
